@@ -1,0 +1,84 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+  --bg: 9 9 10;
+  --surface: 21 21 19;
+  --surface-2: 27 27 24;
+  --border: 42 42 38;
+  --fg: 246 246 245;
+  --fg-muted: 168 168 162;
+  --fg-dim: 118 118 111;
+}
+
+html, body {
+  background: rgb(var(--bg));
+  color: rgb(var(--fg));
+  font-feature-settings: "cv11", "ss01";
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+@layer base {
+  body {
+    @apply font-sans tracking-editorial;
+  }
+  h1, h2, h3 {
+    @apply font-sans tracking-editorial;
+  }
+  .editorial-heading {
+    @apply font-sans font-semibold text-ink-50;
+    letter-spacing: -0.025em;
+  }
+  .hairline {
+    @apply border-t border-white/[0.06];
+  }
+  button, a {
+    @apply transition-colors duration-150;
+  }
+}
+
+@layer components {
+  .surface {
+    @apply bg-ink-850 border border-white/[0.06] rounded-xl;
+  }
+  .surface-2 {
+    @apply bg-ink-800 border border-white/[0.06] rounded-xl;
+  }
+  .btn-primary {
+    @apply inline-flex items-center gap-2 rounded-lg px-3.5 py-2 text-sm font-medium text-white
+           bg-ig-gradient shadow-[0_1px_0_rgba(255,255,255,0.12)_inset]
+           hover:brightness-110 active:brightness-95;
+  }
+  .btn-ghost {
+    @apply inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm text-ink-200
+           hover:bg-white/5 hover:text-white;
+  }
+  .btn-secondary {
+    @apply inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm text-ink-100
+           border border-white/[0.08] bg-white/[0.02] hover:bg-white/[0.05];
+  }
+  .chip {
+    @apply inline-flex items-center gap-1.5 rounded-full border border-white/[0.08]
+           bg-white/[0.03] px-2.5 py-0.5 text-xs text-ink-200;
+  }
+  .input {
+    @apply w-full rounded-lg border border-white/[0.08] bg-ink-900/60 px-3 py-2
+           text-sm text-ink-50 placeholder:text-ink-400
+           focus:outline-none focus:border-white/20 focus:bg-ink-900;
+  }
+  .label {
+    @apply block text-xs uppercase tracking-[0.14em] text-ink-400 mb-1.5 font-medium;
+  }
+  .eyebrow {
+    @apply text-[11px] uppercase tracking-[0.18em] text-ink-400 font-medium;
+  }
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.06); border-radius: 8px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.12); }

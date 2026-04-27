@@ -1,0 +1,118 @@
+// JustDoYou — single-user Instagram marketing platform schema.
+// SQLite for local dev. Arrays serialized as JSON strings (helpers in lib/json.ts).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model BrandProfile {
+  id          String   @id @default(cuid())
+  name        String   @default("JustDoYou")
+  niche       String   @default("Real estate — home buyers")
+  audience    String   @default("")
+  voice       String   @default("")
+  goals       String   @default("") // JSON array of goal objects
+  pillars     Pillar[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Pillar {
+  id          String       @id @default(cuid())
+  label       String
+  description String       @default("")
+  color       String       @default("#833ab4")
+  order       Int          @default(0)
+  brand       BrandProfile @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  brandId     String
+  contentItems ContentItem[]
+}
+
+model ContentItem {
+  id             String    @id @default(cuid())
+  type           String    // reel | carousel | story | post
+  status         String    @default("idea") // idea | scripted | filmed | edited | scheduled | published | archived
+  title          String
+  hook           String    @default("")
+  script         String    @default("")
+  caption        String    @default("")
+  hashtags       String    @default("[]") // JSON array of strings
+  cta            String    @default("")
+  mediaUrls      String    @default("[]") // JSON array of strings
+  thumbnailUrl   String?
+  scheduledAt    DateTime?
+  publishedAt    DateTime?
+  createdByAgent String?   // admin | researcher | scripter | analysis | user
+  pillar         Pillar?   @relation(fields: [pillarId], references: [id])
+  pillarId       String?
+  performance    Performance?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@index([status])
+  @@index([scheduledAt])
+}
+
+model Performance {
+  id            String      @id @default(cuid())
+  contentItem   ContentItem @relation(fields: [contentItemId], references: [id], onDelete: Cascade)
+  contentItemId String      @unique
+  views         Int         @default(0)
+  likes         Int         @default(0)
+  saves         Int         @default(0)
+  shares        Int         @default(0)
+  comments      Int         @default(0)
+  reach         Int         @default(0)
+  fetchedAt     DateTime    @default(now())
+}
+
+model AgentTask {
+  id            String    @id @default(cuid())
+  agent         String    // admin | researcher | scripter | analysis
+  input         String    @default("")
+  output        String    @default("")
+  status        String    @default("pending") // pending | running | done | approved | rejected
+  parentTaskId  String?
+  startedAt     DateTime?
+  completedAt   DateTime?
+  createdAt     DateTime  @default(now())
+
+  @@index([agent, status])
+}
+
+model ResearchFinding {
+  id             String   @id @default(cuid())
+  type           String   // trend | competitor | audio | hashtag | idea
+  content        String
+  sourceUrl      String?
+  relevanceScore Float    @default(0)
+  tags           String   @default("[]")
+  createdAt      DateTime @default(now())
+
+  @@index([type])
+}
+
+model WeeklyReport {
+  id              String   @id @default(cuid())
+  weekOf          DateTime
+  insights        String   @default("[]")
+  recommendations String   @default("[]")
+  metricsSnapshot String   @default("{}")
+  createdAt       DateTime @default(now())
+}
+
+model FollowerSnapshot {
+  id          String   @id @default(cuid())
+  capturedAt  DateTime @default(now())
+  followers   Int
+  following   Int      @default(0)
+  posts       Int      @default(0)
+  engagement  Float    @default(0) // engagement rate %
+
+  @@index([capturedAt])
+}
