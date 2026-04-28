@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
+import { Suspense } from "react";
 import "./globals.css";
 import { Sidebar } from "@/components/shell/sidebar";
 import { Topbar } from "@/components/shell/topbar";
@@ -32,7 +33,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <div className="flex min-h-screen">
           <Sidebar />
           <div className="flex-1 flex flex-col min-w-0">
-            <Topbar />
+            <Suspense fallback={<div className="h-[57px] border-b border-white/[0.06] bg-ink-950/70" />}>
+              <Topbar />
+            </Suspense>
             <main className="flex-1 px-8 py-6 max-w-[1400px] w-full mx-auto">
               {children}
             </main>
