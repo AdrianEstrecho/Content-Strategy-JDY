@@ -1,12 +1,12 @@
 // JustDoYou — single-user Instagram marketing platform schema.
-// SQLite for local dev. Arrays serialized as JSON strings (helpers in lib/json.ts).
+// Postgres (Neon) in all environments. Arrays serialized as JSON strings (helpers in lib/json.ts).
 
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
