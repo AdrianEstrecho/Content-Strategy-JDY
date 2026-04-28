@@ -5,7 +5,7 @@ import { IGSyncButton } from "./ig-sync-button";
 export default async function SettingsPage() {
   const hasAnthropic = !!process.env.ANTHROPIC_API_KEY;
   const hasIG = !!process.env.IG_ACCESS_TOKEN && !!process.env.IG_BUSINESS_ACCOUNT_ID;
-  const model = process.env.ANTHROPIC_MODEL || "claude-sonnet-4-5";
+  const model = process.env.ANTHROPIC_MODEL || "claude-sonnet-4-6";
   const igAccountId = process.env.IG_BUSINESS_ACCOUNT_ID ?? "";
   const lastSnapshot = hasIG
     ? await prisma.followerSnapshot.findFirst({ orderBy: { capturedAt: "desc" } })
