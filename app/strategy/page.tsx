@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db";
 import { parseList } from "@/lib/json";
 import { PageHeader } from "@/components/ui/page-header";
 import { StrategyEditor } from "./strategy-editor";
+import { HowToUse } from "./how-to-use";
 
 export default async function StrategyPage() {
   const brand = await prisma.brandProfile.findFirst({
@@ -17,6 +18,9 @@ export default async function StrategyPage() {
         title="Your North Star"
         description="Brand pillars, voice, audience, and goals. All four agents read from here as shared context."
       />
+
+      <HowToUse />
+
       <StrategyEditor
         initial={{
           brand: {
