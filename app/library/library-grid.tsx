@@ -13,6 +13,7 @@ import {
 } from "@/lib/content";
 import { ContentDrawer } from "@/components/content/content-drawer";
 import { ContentDetail } from "@/components/content/content-detail";
+import { ConfirmModal } from "@/components/ui/confirm-modal";
 import { deleteContent, updateStatus } from "@/app/actions/content";
 
 export type LibItem = {
@@ -56,6 +57,8 @@ export function LibraryGrid({
   const [viewing, setViewing] = useState<LibItem | null>(null);
   const [editing, setEditing] = useState<LibItem | null>(null);
   const [creating, setCreating] = useState(false);
+  const [deleting, setDeleting] = useState<LibItem | null>(null);
+  const [isDeletePending, startDeleteTransition] = useTransition();
   const [, startTransition] = useTransition();
 
   // Sync the local input when the URL ?q= changes (topbar drives this)
@@ -226,11 +229,7 @@ export function LibraryGrid({
                     </button>
                     <button
                       className="btn-ghost text-rose-300 hover:text-rose-200 ml-auto"
-                      onClick={() => {
-                        if (confirm("Delete this content item? This can't be undone.")) {
-                          startTransition(() => deleteContent(i.id));
-                        }
-                      }}
+                      onClick={() => setDeleting(i)}
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
@@ -265,6 +264,28 @@ export function LibraryGrid({
           }}
         />
       )}
+
+      <ConfirmModal
+        open={!!deleting}
+        destructive
+        title="Delete this content?"
+        description={
+          deleting
+            ? `"${deleting.title}" will be permanently removed. This can't be undone.`
+            : undefined
+        }
+        confirmLabel="Delete"
+        busy={isDeletePending}
+        onCancel={() => setDeleting(null)}
+        onConfirm={() => {
+          const target = deleting;
+          if (!target) return;
+          startDeleteTransition(async () => {
+            await deleteContent(target.id);
+            setDeleting(null);
+          });
+        }}
+      />
     </>
   );
 }

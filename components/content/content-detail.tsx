@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { X, Pencil, CalendarCheck2, Archive, Trash2, Copy } from "lucide-react";
+import { ConfirmModal } from "@/components/ui/confirm-modal";
 import { formatWhen } from "@/lib/schedule";
 import {
   STATUS_LABELS,
@@ -28,14 +29,17 @@ export function ContentDetail({
   onEdit,
 }: Props) {
   const [, startTransition] = useTransition();
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [isDeletePending, startDeleteTransition] = useTransition();
 
   useEffect(() => {
     function onEsc(e: KeyboardEvent) {
-      if (e.key === "Escape") onClose();
+      // Don't double-close: if the delete confirm is open, let it own Escape.
+      if (e.key === "Escape" && !confirmingDelete) onClose();
     }
     window.addEventListener("keydown", onEsc);
     return () => window.removeEventListener("keydown", onEsc);
-  }, [onClose]);
+  }, [onClose, confirmingDelete]);
 
   const tc = TYPE_COLORS[item.type as ContentType];
   const statusLabel = STATUS_LABELS[item.status as ContentStatus] ?? item.status;
@@ -129,12 +133,7 @@ export function ContentDetail({
               <Archive className="w-3.5 h-3.5" /> Archive
             </button>
             <button
-              onClick={() => {
-                if (confirm("Delete this content item? This can't be undone.")) {
-                  startTransition(() => deleteContent(item.id));
-                  onClose();
-                }
-              }}
+              onClick={() => setConfirmingDelete(true)}
               className="btn-ghost text-rose-300 hover:text-rose-200 ml-auto"
             >
               <Trash2 className="w-3.5 h-3.5" />
@@ -237,6 +236,23 @@ export function ContentDetail({
           ) : null}
         </div>
       </aside>
+
+      <ConfirmModal
+        open={confirmingDelete}
+        destructive
+        title="Delete this content?"
+        description={`"${item.title}" will be permanently removed. This can't be undone.`}
+        confirmLabel="Delete"
+        busy={isDeletePending}
+        onCancel={() => setConfirmingDelete(false)}
+        onConfirm={() => {
+          startDeleteTransition(async () => {
+            await deleteContent(item.id);
+            setConfirmingDelete(false);
+            onClose();
+          });
+        }}
+      />
     </div>
   );
 }
