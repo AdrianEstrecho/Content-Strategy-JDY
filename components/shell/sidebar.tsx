@@ -10,6 +10,7 @@ import {
   BarChart3,
   Bot,
   Compass,
+  Brain,
   Settings,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
@@ -23,6 +24,7 @@ const nav: NavItem[] = [
   { href: "/generate", label: "Script Generator", icon: Sparkles },
   { href: "/analytics", label: "Analytics", icon: BarChart3 },
   { href: "/agents", label: "Agents", icon: Bot },
+  { href: "/knowledge", label: "Knowledge", icon: Brain },
   { href: "/strategy", label: "Strategy Hub", icon: Compass },
   { href: "/settings", label: "Settings", icon: Settings },
 ];

@@ -16,6 +16,14 @@ import { ContentDetail } from "@/components/content/content-detail";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
 import { deleteContent, updateStatus } from "@/app/actions/content";
 
+export type LibMedia = {
+  url: string;
+  publicId: string;
+  resourceType: "image" | "video";
+  thumbnailUrl?: string;
+  duration?: number;
+};
+
 export type LibItem = {
   id: string;
   title: string;
@@ -32,6 +40,9 @@ export type LibItem = {
   pillarColor?: string;
   scheduledAt: string | null;
   publishedAt: string | null;
+  igPermalink?: string | null;
+  publishError?: string | null;
+  media: LibMedia[];
   createdByAgent: string | null;
   performance: { views: number; likes: number; saves: number; reach: number } | null;
 };
@@ -44,12 +55,16 @@ export function LibraryGrid({
   suggestedDate,
   suggestedReason,
   initialQ = "",
+  igEnabled,
+  cloudinaryEnabled,
 }: {
   items: LibItem[];
   pillars: PillarOption[];
   suggestedDate: string;
   suggestedReason: string;
   initialQ?: string;
+  igEnabled: boolean;
+  cloudinaryEnabled: boolean;
 }) {
   const [q, setQ] = useState(initialQ);
   const [typeFilter, setTypeFilter] = useState<ContentType | "">("");
@@ -246,6 +261,8 @@ export function LibraryGrid({
           item={viewing}
           suggestedDate={suggestedDate}
           suggestedReason={suggestedReason}
+          igEnabled={igEnabled}
+          cloudinaryEnabled={cloudinaryEnabled}
           onEdit={() => {
             setEditing(viewing);
             setViewing(null);

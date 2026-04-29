@@ -7,7 +7,9 @@ export const CONTENT_STATUSES = [
   "filmed",
   "edited",
   "scheduled",
+  "publishing",
   "published",
+  "publish_failed",
   "archived",
 ] as const;
 export type ContentStatus = (typeof CONTENT_STATUSES)[number];
@@ -25,7 +27,9 @@ export const STATUS_LABELS: Record<ContentStatus, string> = {
   filmed: "Filmed",
   edited: "Edited",
   scheduled: "Scheduled",
+  publishing: "Publishing…",
   published: "Published",
+  publish_failed: "Publish failed",
   archived: "Archived",
 };
 

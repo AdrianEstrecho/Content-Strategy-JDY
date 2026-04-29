@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
 import { parseList } from "@/lib/json";
 import { PageHeader } from "@/components/ui/page-header";
+import type { StoredMedia } from "@/lib/media";
 import { CalendarView } from "./calendar-view";
 
 export default async function CalendarPage({
@@ -58,6 +59,15 @@ export default async function CalendarPage({
           pillarColor: i.pillar?.color,
           scheduledAt: i.scheduledAt?.toISOString() ?? null,
           publishedAt: i.publishedAt?.toISOString() ?? null,
+          igPermalink: i.igPermalink,
+          publishError: i.publishError,
+          media: parseList<StoredMedia>(i.mediaUrls).map((m) => ({
+            url: m.url,
+            publicId: m.publicId,
+            resourceType: m.resourceType,
+            thumbnailUrl: m.thumbnailUrl,
+            duration: m.duration,
+          })),
           createdByAgent: i.createdByAgent,
           performance: null,
         }))}

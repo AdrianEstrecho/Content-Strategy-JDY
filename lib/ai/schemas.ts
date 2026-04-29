@@ -128,3 +128,49 @@ export const PostAnalysisSchema = z.object({
 });
 
 export type PostAnalysis = z.infer<typeof PostAnalysisSchema>;
+
+export const KnowledgeSourceSchema = z.enum([
+  "transcript",
+  "note",
+  "article",
+  "idea",
+  "other",
+]);
+
+export const ContentAngleSchema = z.object({
+  format: z
+    .enum(["reel", "carousel", "story", "post"])
+    .describe("which IG format best fits this angle"),
+  hook: z.string().describe("first-line hook the user could open the post with — under 15 words"),
+  angle: z.string().describe("one sentence describing the take or framing"),
+  pillarHint: z
+    .string()
+    .describe("which existing pillar this likely fits (or empty if unclear)"),
+});
+
+export const KnowledgeExtractionSchema = z.object({
+  title: z
+    .string()
+    .describe("a 4-8 word title that captures the source — used if the user did not provide one"),
+  summary: z
+    .string()
+    .describe("2-4 sentence plain-language summary of the source"),
+  keyIdeas: z
+    .array(z.string())
+    .min(3)
+    .max(8)
+    .describe("the most important takeaways, each one short and concrete"),
+  contentAngles: z
+    .array(ContentAngleSchema)
+    .min(2)
+    .max(6)
+    .describe("specific IG content the user could create from this material"),
+  tags: z
+    .array(z.string())
+    .min(1)
+    .max(8)
+    .describe("topic tags — kebab-case or single words"),
+});
+
+export type KnowledgeExtraction = z.infer<typeof KnowledgeExtractionSchema>;
+export type ContentAngle = z.infer<typeof ContentAngleSchema>;

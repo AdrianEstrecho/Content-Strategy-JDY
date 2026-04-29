@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { AI_MODEL, getAnthropic } from "./client";
 import { SCRIPTER_SYSTEM } from "./prompts";
 import { loadStrategyContext, renderStrategyContext } from "./context";
+import { loadKnowledgeContext, renderKnowledgeContext } from "./knowledge";
 import {
   CarouselSchema,
   ReelScriptSchema,
@@ -45,7 +46,12 @@ async function logTask(
 
 export async function generateReel(input: ReelInput): Promise<ReelScript> {
   const client = getAnthropic();
-  const ctx = renderStrategyContext(await loadStrategyContext());
+  const [strategy, knowledge] = await Promise.all([
+    loadStrategyContext(),
+    loadKnowledgeContext(),
+  ]);
+  const ctx = renderStrategyContext(strategy);
+  const knowledgeCtx = renderKnowledgeContext(knowledge);
 
   const userPrompt = [
     `Topic: ${input.topic}`,
@@ -69,6 +75,7 @@ export async function generateReel(input: ReelInput): Promise<ReelScript> {
         cache_control: { type: "ephemeral" },
       },
       { type: "text", text: ctx },
+      { type: "text", text: knowledgeCtx },
     ],
     messages: [{ role: "user", content: userPrompt }],
     output_config: { format: zodOutputFormat(ReelScriptSchema) },
@@ -97,7 +104,12 @@ export async function generateReel(input: ReelInput): Promise<ReelScript> {
 
 export async function generateCarousel(input: CarouselInput): Promise<Carousel> {
   const client = getAnthropic();
-  const ctx = renderStrategyContext(await loadStrategyContext());
+  const [strategy, knowledge] = await Promise.all([
+    loadStrategyContext(),
+    loadKnowledgeContext(),
+  ]);
+  const ctx = renderStrategyContext(strategy);
+  const knowledgeCtx = renderKnowledgeContext(knowledge);
 
   const userPrompt = [
     `Topic: ${input.topic}`,
@@ -120,6 +132,7 @@ export async function generateCarousel(input: CarouselInput): Promise<Carousel> 
         cache_control: { type: "ephemeral" },
       },
       { type: "text", text: ctx },
+      { type: "text", text: knowledgeCtx },
     ],
     messages: [{ role: "user", content: userPrompt }],
     output_config: { format: zodOutputFormat(CarouselSchema) },

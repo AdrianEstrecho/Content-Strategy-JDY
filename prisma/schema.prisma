@@ -36,17 +36,20 @@ model Pillar {
 model ContentItem {
   id             String    @id @default(cuid())
   type           String    // reel | carousel | story | post
-  status         String    @default("idea") // idea | scripted | filmed | edited | scheduled | published | archived
+  status         String    @default("idea") // idea | scripted | filmed | edited | scheduled | published | publishing | publish_failed | archived
   title          String
   hook           String    @default("")
   script         String    @default("")
   caption        String    @default("")
   hashtags       String    @default("[]") // JSON array of strings
   cta            String    @default("")
-  mediaUrls      String    @default("[]") // JSON array of strings
+  mediaUrls      String    @default("[]") // JSON array of { url, publicId, type, thumbnailUrl? }
   thumbnailUrl   String?
   scheduledAt    DateTime?
   publishedAt    DateTime?
+  igMediaId      String?   // Instagram media ID once published
+  igPermalink    String?
+  publishError   String?
   createdByAgent String?   // admin | researcher | scripter | analysis | user
   pillar         Pillar?   @relation(fields: [pillarId], references: [id])
   pillarId       String?
@@ -104,6 +107,47 @@ model WeeklyReport {
   recommendations String   @default("[]")
   metricsSnapshot String   @default("{}")
   createdAt       DateTime @default(now())
+}
+
+model IntegrationToken {
+  id           String    @id @default(cuid())
+  provider     String    @unique // "instagram"
+  accessToken  String
+  expiresAt    DateTime?
+  refreshedAt  DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+}
+
+model PublishLog {
+  id            String   @id @default(cuid())
+  contentItemId String?
+  status        String   // success | failed
+  message       String   @default("")
+  igMediaId     String?
+  attempt       Int      @default(1)
+  createdAt     DateTime @default(now())
+
+  @@index([contentItemId])
+  @@index([createdAt])
+}
+
+model KnowledgeEntry {
+  id            String   @id @default(cuid())
+  title         String
+  source        String   @default("note") // transcript | note | article | idea | other
+  sourceUrl     String?
+  rawContent    String   // original pasted text
+  summary       String   @default("")
+  keyIdeas      String   @default("[]") // JSON array of strings
+  contentAngles String   @default("[]") // JSON array of { hook, angle, format }
+  tags          String   @default("[]") // JSON array of strings
+  status        String   @default("pending") // pending | processed | failed
+  errorMessage  String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([status])
+  @@index([createdAt])
 }
 
 model FollowerSnapshot {

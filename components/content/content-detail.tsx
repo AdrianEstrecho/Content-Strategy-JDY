@@ -12,11 +12,15 @@ import {
 } from "@/lib/content";
 import { deleteContent, rescheduleContent, updateStatus } from "@/app/actions/content";
 import type { LibItem } from "@/app/library/library-grid";
+import { MediaUploader } from "./media-uploader";
+import { PublishPanel } from "./publish-panel";
 
 type Props = {
   item: LibItem;
   suggestedDate: string;
   suggestedReason: string;
+  igEnabled: boolean;
+  cloudinaryEnabled: boolean;
   onClose: () => void;
   onEdit: () => void;
 };
@@ -25,6 +29,8 @@ export function ContentDetail({
   item,
   suggestedDate,
   suggestedReason,
+  igEnabled,
+  cloudinaryEnabled,
   onClose,
   onEdit,
 }: Props) {
@@ -169,6 +175,29 @@ export function ContentDetail({
               </div>
             )}
           </section>
+
+          {/* Media + Publish */}
+          {item.type !== "story" ? (
+            <section className="grid sm:grid-cols-2 gap-4">
+              <div>
+                <div className="eyebrow mb-2">Media</div>
+                <MediaUploader
+                  itemId={item.id}
+                  itemType={item.type}
+                  media={item.media}
+                  cloudinaryEnabled={cloudinaryEnabled}
+                />
+              </div>
+              <div>
+                <div className="eyebrow mb-2">Publish</div>
+                <PublishPanel
+                  item={item}
+                  igEnabled={igEnabled}
+                  cloudinaryEnabled={cloudinaryEnabled}
+                />
+              </div>
+            </section>
+          ) : null}
 
           {/* Hook */}
           {item.hook ? (

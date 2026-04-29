@@ -2,6 +2,9 @@ import { prisma } from "@/lib/db";
 import { PageHeader } from "@/components/ui/page-header";
 import { parseList } from "@/lib/json";
 import { suggestPostDate } from "@/lib/schedule";
+import type { StoredMedia } from "@/lib/media";
+import { isIGEnabled } from "@/lib/instagram";
+import { isCloudinaryEnabled } from "@/lib/cloudinary";
 import { LibraryGrid } from "./library-grid";
 
 export default async function LibraryPage({
@@ -39,6 +42,8 @@ export default async function LibraryPage({
         initialQ={initialQ}
         suggestedDate={suggestion.date.toISOString()}
         suggestedReason={suggestion.reason}
+        igEnabled={isIGEnabled()}
+        cloudinaryEnabled={isCloudinaryEnabled()}
         items={items.map((i) => ({
           id: i.id,
           title: i.title,
@@ -55,6 +60,15 @@ export default async function LibraryPage({
           pillarColor: i.pillar?.color,
           scheduledAt: i.scheduledAt?.toISOString() ?? null,
           publishedAt: i.publishedAt?.toISOString() ?? null,
+          igPermalink: i.igPermalink,
+          publishError: i.publishError,
+          media: parseList<StoredMedia>(i.mediaUrls).map((m) => ({
+            url: m.url,
+            publicId: m.publicId,
+            resourceType: m.resourceType,
+            thumbnailUrl: m.thumbnailUrl,
+            duration: m.duration,
+          })),
           createdByAgent: i.createdByAgent,
           performance: i.performance
             ? {
