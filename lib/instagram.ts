@@ -6,7 +6,7 @@ export function isIGEnabled(): boolean {
   return !!process.env.IG_ACCESS_TOKEN?.trim() && !!process.env.IG_BUSINESS_ACCOUNT_ID?.trim();
 }
 
-// Token resolution: prefer the rotating token in DB (refresh cron updates it).
+// Token resolution: prefer the rotating token in DB if present.
 // Fall back to the .env value for first-run / local dev.
 async function getIGToken(): Promise<string> {
   try {
