@@ -242,8 +242,15 @@ function ReelResult({
         </div>
       </div>
 
-      <Section title="Hook (first 3 seconds)">
-        <p className="text-ink-100 italic">"{reel.hook}"</p>
+      <Section title="Hooks (first 3 seconds — pick one)">
+        <div className="space-y-2">
+          {reel.hooks.map((h, i) => (
+            <div key={i} className="surface-2 p-3">
+              <div className="eyebrow mb-1">Option {String.fromCharCode(65 + i)}</div>
+              <p className="text-ink-100 italic">"{h}"</p>
+            </div>
+          ))}
+        </div>
       </Section>
 
       <Section title="Beats">

@@ -41,7 +41,8 @@ export async function saveReelToLibrary(
     )
     .join("\n\n");
   const fullScript = [
-    `HOOK (${reel.hookStyle}): ${reel.hook}`,
+    `HOOK A (${reel.hookStyle}): ${reel.hooks[0]}`,
+    `HOOK B (${reel.hookStyle}): ${reel.hooks[1]}`,
     ``,
     `LENGTH: ${reel.lengthSeconds}s`,
     `AUDIO: ${reel.suggestedAudio}`,
@@ -54,7 +55,7 @@ export async function saveReelToLibrary(
       type: "reel",
       status: "scripted",
       title: reel.title,
-      hook: reel.hook,
+      hook: reel.hooks[0],
       script: fullScript,
       caption: reel.caption,
       hashtags: stringifyList(reel.hashtags),

@@ -9,7 +9,12 @@ export const ReelBeatSchema = z.object({
 
 export const ReelScriptSchema = z.object({
   title: z.string().describe("working title for the Reel"),
-  hook: z.string().describe("first-3-second hook — the opening voiceover line"),
+  hooks: z
+    .array(z.string())
+    .length(2)
+    .describe(
+      "exactly two alternative first-3-second hook lines — different angles on the same Reel so the user can pick. Each is a complete spoken opener."
+    ),
   hookStyle: z.enum(["question", "bold_claim", "story", "stat"]),
   lengthSeconds: z.number().int(),
   beats: z.array(ReelBeatSchema).min(2),

@@ -171,7 +171,8 @@ export async function runTool(
         )
         .join("\n\n");
       const fullScript = [
-        `HOOK (${reel.hookStyle}): ${reel.hook}`,
+        `HOOK A (${reel.hookStyle}): ${reel.hooks[0]}`,
+        `HOOK B (${reel.hookStyle}): ${reel.hooks[1]}`,
         ``,
         `LENGTH: ${reel.lengthSeconds}s`,
         `AUDIO: ${reel.suggestedAudio}`,
@@ -184,7 +185,7 @@ export async function runTool(
           type: "reel",
           status: "scripted",
           title: reel.title,
-          hook: reel.hook,
+          hook: reel.hooks[0],
           script: fullScript,
           caption: reel.caption,
           hashtags: stringifyList(reel.hashtags),
@@ -199,7 +200,8 @@ export async function runTool(
         detail: [
           `Saved to Library as a draft (status: scripted).`,
           `Title: ${reel.title}`,
-          `Hook: ${reel.hook}`,
+          `Hook A: ${reel.hooks[0]}`,
+          `Hook B: ${reel.hooks[1]}`,
           `Length: ${reel.lengthSeconds}s`,
           `CTA: ${reel.cta}`,
           `Beats: ${reel.beats.length}`,
