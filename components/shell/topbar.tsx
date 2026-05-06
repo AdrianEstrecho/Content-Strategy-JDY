@@ -4,6 +4,8 @@ import { Plus, Search, X } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { ConfirmModal } from "@/components/ui/confirm-modal";
+import { isAppStreaming } from "@/lib/nav-guard";
 
 export function Topbar() {
   const router = useRouter();
@@ -13,6 +15,16 @@ export function Topbar() {
 
   const urlQ = params?.get("q") ?? "";
   const [q, setQ] = useState(urlQ);
+  const [pendingHref, setPendingHref] = useState<string | null>(null);
+
+  function guardClick(e: React.MouseEvent, href: string) {
+    if (!isAppStreaming()) return;
+    const isCurrent =
+      href === "/" ? pathname === "/" : pathname.startsWith(href);
+    if (isCurrent) return;
+    e.preventDefault();
+    setPendingHref(href);
+  }
 
   // Keep the input in sync when navigation changes ?q (e.g. clearing it elsewhere)
   useEffect(() => {
@@ -62,6 +74,7 @@ export function Topbar() {
       <div className="flex items-center gap-4 px-4 md:px-8 py-3 max-w-[1400px] mx-auto">
         <Link
           href="/"
+          onClick={(e) => guardClick(e, "/")}
           aria-label="Go to Dashboard"
           className="md:hidden flex items-center gap-2 shrink-0"
         >
@@ -72,6 +85,7 @@ export function Topbar() {
           <div className="eyebrow">{today}</div>
           <Link
             href="/"
+            onClick={(e) => guardClick(e, "/")}
             className="text-sm text-ink-200 mt-0.5 truncate hover:text-ink-50 transition-colors block"
           >
             Plan, create, and analyze — all in one place.
@@ -116,10 +130,27 @@ export function Topbar() {
             </kbd>
           )}
         </form>
-        <Link href="/generate" className="btn-primary">
+        <Link
+          href="/generate"
+          onClick={(e) => guardClick(e, "/generate")}
+          className="btn-primary"
+        >
           <Plus className="w-4 h-4" /> New Content
         </Link>
       </div>
+      <ConfirmModal
+        open={!!pendingHref}
+        title="Admin is still working"
+        description="Leaving will cancel the response in progress. Continue anyway?"
+        confirmLabel="Leave anyway"
+        cancelLabel="Stay here"
+        onConfirm={() => {
+          const href = pendingHref;
+          setPendingHref(null);
+          if (href) router.push(href);
+        }}
+        onCancel={() => setPendingHref(null)}
+      />
     </header>
   );
 }

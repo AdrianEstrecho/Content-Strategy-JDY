@@ -1,7 +1,8 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   LayoutDashboard,
   CalendarDays,
@@ -14,6 +15,8 @@ import {
   Settings,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
+import { isAppStreaming } from "@/lib/nav-guard";
+import { ConfirmModal } from "@/components/ui/confirm-modal";
 
 type NavItem = { href: string; label: string; icon: React.ComponentType<{ className?: string }> };
 
@@ -31,10 +34,26 @@ const nav: NavItem[] = [
 
 export function Sidebar() {
   const pathname = usePathname();
+  const router = useRouter();
+  const [pendingHref, setPendingHref] = useState<string | null>(null);
+
+  function guardClick(e: React.MouseEvent, href: string) {
+    if (!isAppStreaming()) return;
+    const isCurrent =
+      href === "/" ? pathname === "/" : pathname.startsWith(href);
+    if (isCurrent) return;
+    e.preventDefault();
+    setPendingHref(href);
+  }
+
   return (
     <aside className="hidden md:flex w-60 shrink-0 border-r border-white/[0.06] bg-ink-950 flex-col">
       <div className="px-5 py-5 border-b border-white/[0.06]">
-        <Link href="/" className="flex items-center gap-2.5 group">
+        <Link
+          href="/"
+          onClick={(e) => guardClick(e, "/")}
+          className="flex items-center gap-2.5 group"
+        >
           <span className="relative inline-block w-7 h-7 rounded-md bg-ig-gradient" />
           <span className="flex flex-col leading-none">
             <span className="editorial-heading text-lg">JustDoYou</span>
@@ -56,6 +75,7 @@ export function Sidebar() {
             <Link
               key={item.href}
               href={item.href}
+              onClick={(e) => guardClick(e, item.href)}
               className={cn(
                 "flex items-center gap-3 px-3 py-2 rounded-lg text-sm",
                 active
@@ -77,6 +97,20 @@ export function Sidebar() {
           <div className="text-xs text-ink-400 mt-0.5">Home buyers</div>
         </div>
       </div>
+
+      <ConfirmModal
+        open={!!pendingHref}
+        title="Admin is still working"
+        description="Leaving will cancel the response in progress. Continue anyway?"
+        confirmLabel="Leave anyway"
+        cancelLabel="Stay here"
+        onConfirm={() => {
+          const href = pendingHref;
+          setPendingHref(null);
+          if (href) router.push(href);
+        }}
+        onCancel={() => setPendingHref(null)}
+      />
     </aside>
   );
 }

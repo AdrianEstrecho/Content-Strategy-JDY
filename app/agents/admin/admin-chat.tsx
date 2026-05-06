@@ -1,17 +1,22 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowUp,
   Bot,
   Check,
   Compass,
   PenLine,
+  Plus,
   Target,
+  Trash2,
   User,
   X,
   Loader2,
+  MessagesSquare,
 } from "lucide-react";
+import { ConfirmModal } from "@/components/ui/confirm-modal";
+import { setAppStreaming } from "@/lib/nav-guard";
 import type { ChatMessage } from "@/lib/ai/admin";
 
 const STARTERS = [
@@ -35,50 +40,208 @@ type AssistantTurn = { role: "assistant"; blocks: Block[] };
 type UserTurn = { role: "user"; content: string };
 type Turn = UserTurn | AssistantTurn;
 
+type Conversation = {
+  id: string;
+  title: string;
+  createdAt: number;
+  updatedAt: number;
+  turns: Turn[];
+};
+
+const STORAGE_KEY = "admin_chats_v1";
+
 const TOOL_META: Record<string, { label: string; icon: React.ComponentType<{ className?: string }> }> = {
   request_research: { label: "Researcher", icon: Compass },
   request_script: { label: "Scripter", icon: PenLine },
   request_analysis: { label: "Analysis", icon: Target },
 };
 
+function newId() {
+  return Math.random().toString(36).slice(2) + Date.now().toString(36);
+}
+
+function titleFromMessage(msg: string): string {
+  const trimmed = msg.trim().split(/\r?\n/)[0] ?? "";
+  if (trimmed.length <= 48) return trimmed || "New chat";
+  return trimmed.slice(0, 45).trimEnd() + "…";
+}
+
+function loadStore(): { conversations: Conversation[]; activeId: string | null } {
+  if (typeof window === "undefined") return { conversations: [], activeId: null };
+  try {
+    const raw = window.localStorage.getItem(STORAGE_KEY);
+    if (!raw) return { conversations: [], activeId: null };
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed?.conversations)) {
+      return {
+        conversations: parsed.conversations,
+        activeId: parsed.activeId ?? null,
+      };
+    }
+  } catch {
+    // fall through
+  }
+  return { conversations: [], activeId: null };
+}
+
+function saveStore(conversations: Conversation[], activeId: string | null) {
+  try {
+    window.localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({ conversations, activeId })
+    );
+  } catch {
+    // storage may be full / disabled — ignore
+  }
+}
+
 export function AdminChat({ aiEnabled }: { aiEnabled: boolean }) {
-  const [turns, setTurns] = useState<Turn[]>([]);
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const [hydrated, setHydrated] = useState(false);
   const [input, setInput] = useState("");
   const [streaming, setStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<Conversation | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const abortRef = useRef<AbortController | null>(null);
+
+  // Load history on mount.
+  useEffect(() => {
+    const store = loadStore();
+    setConversations(store.conversations);
+    setActiveId(store.activeId);
+    setHydrated(true);
+  }, []);
+
+  // Persist on every change.
+  useEffect(() => {
+    if (!hydrated) return;
+    saveStore(conversations, activeId);
+  }, [conversations, activeId, hydrated]);
+
+  // Streaming flag → nav guard + beforeunload.
+  useEffect(() => {
+    setAppStreaming(streaming);
+    if (!streaming) return;
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => {
+      window.removeEventListener("beforeunload", handler);
+    };
+  }, [streaming]);
+
+  // Abort any in-flight fetch on unmount.
+  useEffect(() => {
+    return () => {
+      abortRef.current?.abort();
+      setAppStreaming(false);
+    };
+  }, []);
+
+  const activeConversation = useMemo(
+    () => conversations.find((c) => c.id === activeId) ?? null,
+    [conversations, activeId]
+  );
+  const turns: Turn[] = activeConversation?.turns ?? [];
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
-  }, [turns, streaming]);
+  }, [turns, streaming, activeId]);
+
+  function startNewChat() {
+    if (streaming) return;
+    setActiveId(null);
+    setError(null);
+    setInput("");
+  }
+
+  function selectChat(id: string) {
+    if (streaming) return;
+    setActiveId(id);
+    setError(null);
+  }
+
+  function deleteChat(id: string) {
+    setConversations((prev) => prev.filter((c) => c.id !== id));
+    if (activeId === id) setActiveId(null);
+    setConfirmDelete(null);
+  }
+
+  function updateTurns(convId: string, updater: (t: Turn[]) => Turn[]) {
+    setConversations((prev) =>
+      prev.map((c) =>
+        c.id === convId
+          ? { ...c, turns: updater(c.turns), updatedAt: Date.now() }
+          : c
+      )
+    );
+  }
 
   async function send(text: string) {
-    if (!text.trim() || streaming) return;
+    const clean = text.trim();
+    if (!clean || streaming) return;
     setError(null);
 
-    const nextTurns: Turn[] = [...turns, { role: "user", content: text.trim() }];
-    setTurns([...nextTurns, { role: "assistant", blocks: [] }]);
+    // Resolve target conversation — create one if we're on a fresh chat.
+    let convId = activeId;
+    let baseTurns: Turn[];
+    if (!convId) {
+      convId = newId();
+      const conv: Conversation = {
+        id: convId,
+        title: titleFromMessage(clean),
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+        turns: [
+          { role: "user", content: clean },
+          { role: "assistant", blocks: [] },
+        ],
+      };
+      setConversations((prev) => [conv, ...prev]);
+      setActiveId(convId);
+      baseTurns = conv.turns;
+    } else {
+      const existing = conversations.find((c) => c.id === convId);
+      const priorTurns = existing?.turns ?? [];
+      baseTurns = [
+        ...priorTurns,
+        { role: "user", content: clean },
+        { role: "assistant", blocks: [] },
+      ];
+      updateTurns(convId, () => baseTurns);
+    }
+
     setInput("");
     setStreaming(true);
 
-    // Build API payload from user/assistant text only (no tool metadata leaks to Claude here — Admin runtime handles its own tool state)
-    const apiMessages: ChatMessage[] = nextTurns.map((t) =>
-      t.role === "user"
-        ? { role: "user", content: t.content }
-        : {
-            role: "assistant",
-            content: t.blocks
-              .filter((b): b is { kind: "text"; text: string } => b.kind === "text")
-              .map((b) => b.text)
-              .join(""),
-          }
-    );
+    // Build API payload from prior text turns only.
+    const apiMessages: ChatMessage[] = baseTurns
+      .slice(0, -1) // drop the empty assistant placeholder
+      .map((t) =>
+        t.role === "user"
+          ? { role: "user", content: t.content }
+          : {
+              role: "assistant",
+              content: t.blocks
+                .filter((b): b is { kind: "text"; text: string } => b.kind === "text")
+                .map((b) => b.text)
+                .join(""),
+            }
+      );
+
+    const controller = new AbortController();
+    abortRef.current = controller;
 
     try {
       const res = await fetch("/api/agents/admin/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ messages: apiMessages }),
+        signal: controller.signal,
       });
 
       if (!res.ok) {
@@ -91,15 +254,17 @@ export function AdminChat({ aiEnabled }: { aiEnabled: boolean }) {
       let buffer = "";
       let currentBlocks: Block[] = [];
 
-      // Helper: push current state to UI
       const flush = () => {
-        setTurns((prev) => {
-          const copy = [...prev];
-          const last = copy[copy.length - 1];
+        const snapshot: Block[] = currentBlocks.map((b) =>
+          b.kind === "text" ? { ...b } : { kind: "tool", tool: { ...b.tool } }
+        );
+        updateTurns(convId!, (existingTurns) => {
+          const next = [...existingTurns];
+          const last = next[next.length - 1];
           if (last && last.role === "assistant") {
-            copy[copy.length - 1] = { role: "assistant", blocks: [...currentBlocks] };
+            next[next.length - 1] = { role: "assistant", blocks: snapshot };
           }
-          return copy;
+          return next;
         });
       };
 
@@ -109,7 +274,7 @@ export function AdminChat({ aiEnabled }: { aiEnabled: boolean }) {
         buffer += decoder.decode(value, { stream: true });
 
         const lines = buffer.split("\n");
-        buffer = lines.pop() ?? ""; // last partial line held for next chunk
+        buffer = lines.pop() ?? "";
 
         for (const line of lines) {
           if (!line.trim()) continue;
@@ -155,85 +320,193 @@ export function AdminChat({ aiEnabled }: { aiEnabled: boolean }) {
         }
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Stream failed");
-      // Remove empty assistant bubble if nothing streamed
-      setTurns((prev) => {
-        const last = prev[prev.length - 1];
-        if (last?.role === "assistant" && last.blocks.length === 0) return prev.slice(0, -1);
-        return prev;
-      });
+      const aborted = e instanceof DOMException && e.name === "AbortError";
+      if (!aborted) {
+        setError(e instanceof Error ? e.message : "Stream failed");
+        // Trim trailing empty assistant bubble if nothing streamed.
+        updateTurns(convId, (existingTurns) => {
+          const last = existingTurns[existingTurns.length - 1];
+          if (last?.role === "assistant" && last.blocks.length === 0) {
+            return existingTurns.slice(0, -1);
+          }
+          return existingTurns;
+        });
+      }
     } finally {
+      abortRef.current = null;
       setStreaming(false);
     }
   }
 
   return (
-    <div className="grid grid-rows-[1fr_auto] h-[calc(100vh-240px)] min-h-[500px] surface overflow-hidden">
-      <div ref={scrollRef} className="overflow-y-auto px-6 py-6">
-        {turns.length === 0 ? (
-          <div className="max-w-xl mx-auto mt-6">
-            <div className="editorial-heading text-2xl mb-1">What's on your mind?</div>
-            <p className="text-sm text-ink-400 mb-5">
-              Admin can now delegate to the other agents live. Ask it to plan your week and watch
-              it pull analysis, research trends, and draft scripts — each saved straight to your
-              Library.
-            </p>
-            <div className="grid sm:grid-cols-2 gap-2">
-              {STARTERS.map((s) => (
-                <button
-                  key={s}
-                  onClick={() => send(s)}
-                  disabled={!aiEnabled}
-                  className="surface-2 text-left px-4 py-3 text-sm text-ink-200 hover:bg-white/[0.04]"
-                >
-                  {s}
-                </button>
-              ))}
-            </div>
-          </div>
-        ) : (
-          <div className="max-w-2xl mx-auto space-y-6">
-            {turns.map((t, i) => {
-              const isLast = i === turns.length - 1;
-              if (t.role === "user") return <UserBubble key={i} content={t.content} />;
-              return (
-                <AssistantBubble
-                  key={i}
-                  blocks={t.blocks}
-                  streaming={streaming && isLast}
-                />
-              );
-            })}
-          </div>
-        )}
-      </div>
+    <div className="grid grid-cols-1 md:grid-cols-[240px_1fr] h-[calc(100vh-240px)] min-h-[500px] surface overflow-hidden">
+      <ChatHistorySidebar
+        conversations={conversations}
+        activeId={activeId}
+        streaming={streaming}
+        onNew={startNewChat}
+        onSelect={selectChat}
+        onDelete={(c) => setConfirmDelete(c)}
+      />
 
-      <div className="border-t border-white/[0.06] bg-ink-900/60 px-6 py-4">
-        {error ? <div className="text-xs text-rose-300 mb-2">{error}</div> : null}
-        <div className="max-w-2xl mx-auto flex gap-2 items-end">
-          <textarea
-            className="input min-h-[44px] max-h-[160px] resize-none"
-            placeholder={aiEnabled ? "Message Admin…" : "Add ANTHROPIC_API_KEY in Settings to chat."}
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault();
-                send(input);
-              }
-            }}
-            disabled={!aiEnabled || streaming}
-          />
-          <button
-            onClick={() => send(input)}
-            disabled={!aiEnabled || !input.trim() || streaming}
-            className="btn-primary shrink-0 h-11"
-          >
-            <ArrowUp className="w-4 h-4" />
-          </button>
+      <div className="grid grid-rows-[1fr_auto] overflow-hidden">
+        <div ref={scrollRef} className="overflow-y-auto px-6 py-6">
+          {turns.length === 0 ? (
+            <div className="max-w-xl mx-auto mt-6">
+              <div className="editorial-heading text-2xl mb-1">What's on your mind?</div>
+              <p className="text-sm text-ink-400 mb-5">
+                Admin can now delegate to the other agents live. Ask it to plan your week and watch
+                it pull analysis, research trends, and draft scripts — each saved straight to your
+                Library.
+              </p>
+              <div className="grid sm:grid-cols-2 gap-2">
+                {STARTERS.map((s) => (
+                  <button
+                    key={s}
+                    onClick={() => send(s)}
+                    disabled={!aiEnabled}
+                    className="surface-2 text-left px-4 py-3 text-sm text-ink-200 hover:bg-white/[0.04]"
+                  >
+                    {s}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div className="max-w-2xl mx-auto space-y-6">
+              {turns.map((t, i) => {
+                const isLast = i === turns.length - 1;
+                if (t.role === "user") return <UserBubble key={i} content={t.content} />;
+                return (
+                  <AssistantBubble
+                    key={i}
+                    blocks={t.blocks}
+                    streaming={streaming && isLast}
+                  />
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        <div className="border-t border-white/[0.06] bg-ink-900/60 px-6 py-4">
+          {error ? <div className="text-xs text-rose-300 mb-2">{error}</div> : null}
+          <div className="max-w-2xl mx-auto flex gap-2 items-end">
+            <textarea
+              className="input min-h-[44px] max-h-[160px] resize-none"
+              placeholder={aiEnabled ? "Message Admin…" : "Add ANTHROPIC_API_KEY in Settings to chat."}
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  send(input);
+                }
+              }}
+              disabled={!aiEnabled || streaming}
+            />
+            <button
+              onClick={() => send(input)}
+              disabled={!aiEnabled || !input.trim() || streaming}
+              className="btn-primary shrink-0 h-11"
+            >
+              <ArrowUp className="w-4 h-4" />
+            </button>
+          </div>
         </div>
       </div>
+
+      <ConfirmModal
+        open={!!confirmDelete}
+        title="Delete this chat?"
+        description={
+          confirmDelete
+            ? `"${confirmDelete.title}" will be removed permanently.`
+            : undefined
+        }
+        confirmLabel="Delete"
+        destructive
+        onConfirm={() => confirmDelete && deleteChat(confirmDelete.id)}
+        onCancel={() => setConfirmDelete(null)}
+      />
     </div>
+  );
+}
+
+function ChatHistorySidebar({
+  conversations,
+  activeId,
+  streaming,
+  onNew,
+  onSelect,
+  onDelete,
+}: {
+  conversations: Conversation[];
+  activeId: string | null;
+  streaming: boolean;
+  onNew: () => void;
+  onSelect: (id: string) => void;
+  onDelete: (c: Conversation) => void;
+}) {
+  const sorted = [...conversations].sort((a, b) => b.updatedAt - a.updatedAt);
+
+  return (
+    <aside className="hidden md:flex flex-col border-r border-white/[0.06] bg-ink-900/30">
+      <div className="p-3 border-b border-white/[0.06]">
+        <button
+          onClick={onNew}
+          disabled={streaming}
+          className="btn-secondary w-full justify-center text-sm"
+        >
+          <Plus className="w-3.5 h-3.5" />
+          New chat
+        </button>
+      </div>
+      <div className="flex-1 overflow-y-auto p-2">
+        {sorted.length === 0 ? (
+          <div className="px-3 py-6 text-center">
+            <MessagesSquare className="w-5 h-5 text-ink-500 mx-auto mb-2" />
+            <p className="text-xs text-ink-500 leading-relaxed">
+              Your chats will appear here.
+            </p>
+          </div>
+        ) : (
+          <ul className="space-y-0.5">
+            {sorted.map((c) => {
+              const isActive = c.id === activeId;
+              return (
+                <li key={c.id} className="group relative">
+                  <button
+                    onClick={() => onSelect(c.id)}
+                    disabled={streaming && !isActive}
+                    className={
+                      "w-full text-left px-3 py-2 rounded-md text-sm leading-snug transition-colors " +
+                      (isActive
+                        ? "bg-white/[0.06] text-ink-50"
+                        : "text-ink-300 hover:bg-white/[0.03] hover:text-ink-100") +
+                      " disabled:opacity-50 disabled:cursor-not-allowed"
+                    }
+                  >
+                    <div className="truncate pr-6">{c.title}</div>
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onDelete(c);
+                    }}
+                    disabled={streaming}
+                    className="absolute right-1.5 top-1.5 p-1 rounded text-ink-500 opacity-0 group-hover:opacity-100 hover:text-rose-300 hover:bg-white/[0.04] disabled:cursor-not-allowed"
+                    aria-label="Delete chat"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </div>
+    </aside>
   );
 }
 
