@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import Link from "next/link";
 import {
   Sparkles,
   Trash2,
@@ -9,12 +10,15 @@ import {
   ChevronRight,
   AlertCircle,
   Link as LinkIcon,
+  Wand2,
+  Check,
 } from "lucide-react";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
 import {
   createKnowledgeEntry,
   deleteKnowledgeEntry,
   reprocessKnowledgeEntry,
+  scriptFromAngle,
   type KnowledgeInput,
 } from "@/app/actions/knowledge";
 import type { ContentAngle } from "@/lib/ai/schemas";
@@ -342,22 +346,7 @@ function EntryCard({
             <Section label="Content angles">
               <div className="space-y-2.5">
                 {entry.contentAngles.map((a, i) => (
-                  <div key={i} className="surface-2 p-3">
-                    <div className="flex items-center gap-2 flex-wrap mb-1">
-                      <span className="chip text-ink-200 border-white/10 uppercase text-[10px] tracking-wider">
-                        {a.format}
-                      </span>
-                      {a.pillarHint ? (
-                        <span className="chip text-ink-400">
-                          {a.pillarHint}
-                        </span>
-                      ) : null}
-                    </div>
-                    <div className="text-sm font-medium text-ink-50">
-                      {a.hook}
-                    </div>
-                    <div className="text-sm text-ink-300 mt-1">{a.angle}</div>
-                  </div>
+                  <AngleCard key={i} angle={a} />
                 ))}
               </div>
             </Section>
@@ -412,6 +401,70 @@ function Section({ label, children }: { label: string; children: React.ReactNode
     <div>
       <div className="eyebrow mb-2">{label}</div>
       {children}
+    </div>
+  );
+}
+
+function AngleCard({ angle }: { angle: ContentAngle }) {
+  const [busy, setBusy] = useState(false);
+  const [saved, setSaved] = useState<{ id: string; title: string } | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const scriptable = angle.format === "reel" || angle.format === "carousel";
+
+  async function run() {
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await scriptFromAngle(angle);
+      setSaved({ id: res.id, title: res.title });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Script failed.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="surface-2 p-3">
+      <div className="flex items-center gap-2 flex-wrap mb-1">
+        <span className="chip text-ink-200 border-white/10 uppercase text-[10px] tracking-wider">
+          {angle.format}
+        </span>
+        {angle.pillarHint ? (
+          <span className="chip text-ink-400">{angle.pillarHint}</span>
+        ) : null}
+        <div className="ml-auto">
+          {scriptable ? (
+            saved ? (
+              <Link
+                href="/library"
+                className="btn-secondary text-xs"
+                title={`Saved: ${saved.title}`}
+              >
+                <Check className="w-3.5 h-3.5" />
+                Saved — view in Library
+              </Link>
+            ) : (
+              <button
+                onClick={run}
+                disabled={busy}
+                className="btn-secondary text-xs"
+              >
+                <Wand2 className="w-3.5 h-3.5" />
+                {busy ? "Scripting…" : "Auto-script"}
+              </button>
+            )
+          ) : null}
+        </div>
+      </div>
+      <div className="text-sm font-medium text-ink-50">{angle.hook}</div>
+      <div className="text-sm text-ink-300 mt-1">{angle.angle}</div>
+      {error ? (
+        <div className="flex items-start gap-1.5 text-xs text-rose-300 mt-2">
+          <AlertCircle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+          <span>{error}</span>
+        </div>
+      ) : null}
     </div>
   );
 }
